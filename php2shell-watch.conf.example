@@ -1,0 +1,8 @@
+# Slack incoming webhook (empty = log to /var/log/php2shell-watch.log and syslog only)
+SLACK_WEBHOOK=""
+# Mail address, sent through the local sendmail (empty = off)
+MAIL_TO=""
+# Regex of allowed child processes of php-fpm, e.g. 'convert|jpegoptim|cwebp'
+IGNORE_CHILDREN=""
+# Regex of paths the new-file check may ignore
+IGNORE_PATHS=""
