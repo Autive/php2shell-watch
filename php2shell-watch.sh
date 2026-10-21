@@ -20,7 +20,7 @@ findings=()
 add() { findings+=("$1"); }
 
 # Site users = owners of php-fpm pools (one user per site on Ploi/Forge-style hosts)
-ps -eo pid,ppid,user,comm,args --no-headers > "$STATE/ps.txt"
+ps -eo pid,ppid,user:32,comm,args --no-headers > "$STATE/ps.txt"
 site_users=$(awk '$4 ~ /^php-fpm/ && $3 != "root" {print $3}' "$STATE/ps.txt" | sort -u)
 fpm_pids=" $(awk '$4 ~ /^php-fpm/ {print $1}' "$STATE/ps.txt" | tr '\n' ' ')"
 
@@ -67,7 +67,7 @@ conns=$(ss -tnpH state established 2>/dev/null | grep 'php-fpm' | awk '{print $4
 # 4b. Listening sockets owned by site users (bind shell)
 listen=""
 for p in $(ss -tulnpH 2>/dev/null | grep -oE 'pid=[0-9]+' | cut -d= -f2 | sort -u); do
-  u=$(ps -o user= -p "$p" 2>/dev/null | tr -d ' '); c=$(ps -o comm= -p "$p" 2>/dev/null)
+  u=$(ps -o user:32= -p "$p" 2>/dev/null | tr -d ' '); c=$(ps -o comm= -p "$p" 2>/dev/null)
   [ -z "$u" ] && continue
   case "$c" in php-fpm*|nginx|apache2|httpd|caddy|litespeed) continue;; esac
   printf '%s\n' "$site_users" | grep -qx "$u" && listen+="pid $p $u $c: $(ss -tulnpH | grep "pid=$p," | awk '{print $5}' | tr '\n' ' ')"$'\n'
