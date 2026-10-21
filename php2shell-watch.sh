@@ -9,10 +9,14 @@ set -u
 CONF=/etc/php2shell-watch.conf
 STATE=/var/lib/php2shell-watch
 LOG=/var/log/php2shell-watch.log
-SLACK_WEBHOOK=""; MAIL_TO=""; IGNORE_CHILDREN=""; IGNORE_PATHS=""
+SLACK_WEBHOOK=""; MAIL_TO=""; IGNORE_CHILDREN=""; IGNORE_PATHS=""; FPM_LOGS=""; WEB_ROOTS=""
 [ -f "$CONF" ] && . "$CONF"
+# Defaults cover Debian/Ubuntu (php8.x-fpm.log, /home), RHEL/Amazon Linux (/var/log/php-fpm, /var/www) and Remi SCL
+[ -z "$FPM_LOGS" ] && FPM_LOGS="/var/log/php*-fpm.log /var/log/php-fpm/*.log /var/opt/remi/php*/log/php-fpm/*.log"
+[ -z "$WEB_ROOTS" ] && WEB_ROOTS="/home /var/www /srv"
+roots=""; for r in $WEB_ROOTS; do [ -d "$r" ] && roots="$roots $r"; done
 mkdir -p "$STATE"
-HOST=$(hostname -s)
+HOST=$(hostname -s 2>/dev/null || uname -n | cut -d. -f1)
 INIT=0; VERBOSE=0
 [ "${1:-}" = "--init" ] && INIT=1
 [ "${1:-}" = "-v" ] && VERBOSE=1
@@ -25,14 +29,14 @@ site_users=$(awk '$4 ~ /^php-fpm/ && $3 != "root" {print $3}' "$STATE/ps.txt" | 
 fpm_pids=" $(awk '$4 ~ /^php-fpm/ {print $1}' "$STATE/ps.txt" | tr '\n' ' ')"
 
 # 1. Crashing FPM workers (a failed use-after-free attempt = SIGSEGV/SIGABRT/SIGBUS)
-for f in /var/log/php*-fpm.log; do
+for f in $FPM_LOGS; do
   [ -f "$f" ] || continue
-  key=$(basename "$f"); prev=$(cat "$STATE/lines_$key" 2>/dev/null || echo 0)
+  key=$(printf '%s' "$f" | tr '/' '_'); prev=$(cat "$STATE/lines_$key" 2>/dev/null || echo 0)
   cur=$(wc -l < "$f"); [ "$cur" -lt "$prev" ] && prev=0
   echo "$cur" > "$STATE/lines_$key"
   [ $INIT -eq 1 ] && continue
   hits=$(tail -n +$((prev+1)) "$f" | grep -E 'exited on signal (6|7|11)' | head -5)
-  [ -n "$hits" ] && add "FPM workers crashed ($key):"$'\n'"$hits"
+  [ -n "$hits" ] && add "FPM workers crashed ($f):"$'\n'"$hits"
 done
 
 # 2. Child processes of php-fpm (webshell, reverse shell, downloader)
@@ -75,16 +79,17 @@ done
 [ -n "$listen" ] && add "Site user listening on a port:"$'\n'"$listen"
 
 # 5. New PHP files in upload/cache dirs and new files in tmp owned by site users
+owner_args=(); for u in $site_users; do owner_args+=(-o -user "$u"); done
 newf=$( {
-  find /home -xdev \( -path '*/wp-content/uploads/*' -o -path '*/wp-content/cache/*' -o -path '*/wp-content/upgrade/*' \) -type f -name '*.ph*' -mmin -6 2>/dev/null
-  find /home -xdev -path '*/storage/*' -not -path '*/storage/framework/*' -type f -name '*.php' -mmin -6 2>/dev/null
-  find /tmp /var/tmp /dev/shm -xdev -type f -uid +999 -mmin -6 ! -name 'php??????' ! -name 'sess_*' -not -path '*/systemd-private-*' 2>/dev/null
+  [ -n "$roots" ] && find $roots -xdev \( -path '*/wp-content/uploads/*' -o -path '*/wp-content/cache/*' -o -path '*/wp-content/upgrade/*' \) -type f -name '*.ph*' -mmin -6 2>/dev/null
+  [ -n "$roots" ] && find $roots -xdev -path '*/storage/*' -not -path '*/storage/framework/*' -type f -name '*.php' -mmin -6 2>/dev/null
+  [ ${#owner_args[@]} -gt 0 ] && find /tmp /var/tmp /dev/shm -xdev -type f \( -false "${owner_args[@]}" \) -mmin -6 ! -name 'php??????' ! -name 'sess_*' -not -path '*/systemd-private-*' 2>/dev/null
 } | head -10)
 [ -n "$IGNORE_PATHS" ] && newf=$(printf '%s\n' "$newf" | grep -Ev "$IGNORE_PATHS")
 [ -n "$newf" ] && add "New/changed suspicious files (last 6 min):"$'\n'"$(ls -la $newf 2>/dev/null)"
 
 # 6. Persistence: crontabs, cron.d, authorized_keys
-md5sum /var/spool/cron/crontabs/* /etc/cron.d/* /root/.ssh/authorized_keys /home/*/.ssh/authorized_keys 2>/dev/null | sort > "$STATE/persist.new"
+md5sum /var/spool/cron/crontabs/* /var/spool/cron/* /etc/cron.d/* /etc/systemd/system/*.timer /root/.ssh/authorized_keys /home/*/.ssh/authorized_keys 2>/dev/null | sort -u > "$STATE/persist.new"
 if [ $INIT -eq 0 ] && [ -f "$STATE/persist.md5" ] && ! cmp -s "$STATE/persist.md5" "$STATE/persist.new"; then
   add "Crontab/cron.d/authorized_keys changed:"$'\n'"$(diff "$STATE/persist.md5" "$STATE/persist.new" | grep '^[<>]' | head -10)"
 fi

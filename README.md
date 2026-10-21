@@ -4,7 +4,7 @@ A small cron-driven watchdog for PHP-FPM servers, written on 21 October 2026 whi
 
 It is a single bash script with no dependencies beyond coreutils, `ss`, `ps` and optionally `python3` for the Slack payload. It is not a replacement for patching. Upgrade PHP as soon as the fixed versions (8.5.12, 8.4.27, 8.3.36, 8.2.35) are available in your repository.
 
-Built for Debian and Ubuntu servers where each site runs its own PHP-FPM pool under its own user (Ploi, Forge, RunCloud and similar). It works on other layouts but the per-site-user checks are less precise there.
+Built for Debian and Ubuntu servers where each site runs its own PHP-FPM pool under its own user (Ploi, Forge, RunCloud and similar). It also runs on RHEL-style hosts such as Amazon Linux 2023, where PHP runs as `apache` or `nginx`, the FPM log is `/var/log/php-fpm/error.log`, web roots live in `/var/www`, and there is no cron daemon: the installer then uses a systemd timer instead. With a single shared PHP user the per-site-user checks are less precise, but the crash, child-process, network and file checks work the same.
 
 ## What it checks
 
@@ -27,13 +27,13 @@ cd php2shell-watch
 sudo ./install.sh
 ```
 
-The installer copies the script to `/usr/local/sbin`, writes `/etc/cron.d/php2shell-watch`, creates `/etc/php2shell-watch.conf` from the example, takes a baseline, and runs once verbosely so you see the current state immediately.
+The installer copies the script to `/usr/local/sbin`, schedules it every 5 minutes (through `/etc/cron.d/php2shell-watch` when a cron daemon runs, otherwise through `php2shell-watch.timer` in systemd), creates `/etc/php2shell-watch.conf` from the example, takes a baseline, and runs once verbosely so you see the current state immediately.
 
 Then put a Slack webhook or mail address in `/etc/php2shell-watch.conf`.
 
 ## Tuning
 
-If a site legitimately spawns processes from PHP (an image plugin calling `convert`, for instance), add them to `IGNORE_CHILDREN` in the conf as a regex. Noisy paths go in `IGNORE_PATHS`.
+If a site legitimately spawns processes from PHP (an image plugin calling `convert`, for instance), add them to `IGNORE_CHILDREN` in the conf as a regex. Noisy paths go in `IGNORE_PATHS`. If your FPM logs or web roots live somewhere unusual, set `FPM_LOGS` and `WEB_ROOTS`.
 
 Manual runs:
 

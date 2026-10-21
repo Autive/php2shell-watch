@@ -6,3 +6,8 @@ MAIL_TO=""
 IGNORE_CHILDREN=""
 # Regex of paths the new-file check may ignore
 IGNORE_PATHS=""
+# PHP-FPM log files to scan for crashed workers (globs allowed). Empty = autodetect:
+# /var/log/php*-fpm.log (Debian/Ubuntu), /var/log/php-fpm/*.log (RHEL/Amazon Linux), Remi SCL
+FPM_LOGS=""
+# Directories that hold the web roots. Empty = /home /var/www /srv (those that exist)
+WEB_ROOTS=""
