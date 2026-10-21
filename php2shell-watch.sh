@@ -9,11 +9,12 @@ set -u
 CONF=/etc/php2shell-watch.conf
 STATE=/var/lib/php2shell-watch
 LOG=/var/log/php2shell-watch.log
-SLACK_WEBHOOK=""; MAIL_TO=""; IGNORE_CHILDREN=""; IGNORE_PATHS=""; FPM_LOGS=""; WEB_ROOTS=""
+SLACK_WEBHOOK=""; MAIL_TO=""; IGNORE_CHILDREN=""; IGNORE_PATHS=""; IGNORE_LISTEN=""; FPM_LOGS=""; WEB_ROOTS=""
 [ -f "$CONF" ] && . "$CONF"
 # Defaults cover Debian/Ubuntu (php8.x-fpm.log, /home), RHEL/Amazon Linux (/var/log/php-fpm, /var/www) and Remi SCL
 [ -z "$FPM_LOGS" ] && FPM_LOGS="/var/log/php*-fpm.log /var/log/php-fpm/*.log /var/opt/remi/php*/log/php-fpm/*.log"
 [ -z "$WEB_ROOTS" ] && WEB_ROOTS="/home /var/www /srv"
+[ -z "$IGNORE_LISTEN" ] && IGNORE_LISTEN="nightwatch:agent"
 roots=""; for r in $WEB_ROOTS; do [ -d "$r" ] && roots="$roots $r"; done
 mkdir -p "$STATE"
 HOST=$(hostname -s 2>/dev/null || uname -n | cut -d. -f1)
@@ -74,6 +75,7 @@ for p in $(ss -tulnpH 2>/dev/null | grep -oE 'pid=[0-9]+' | cut -d= -f2 | sort -
   u=$(ps -o user:32= -p "$p" 2>/dev/null | tr -d ' '); c=$(ps -o comm= -p "$p" 2>/dev/null)
   [ -z "$u" ] && continue
   case "$c" in php-fpm*|nginx|apache2|httpd|caddy|litespeed) continue;; esac
+  ps -o args= -p "$p" 2>/dev/null | grep -Eq "$IGNORE_LISTEN" && continue
   printf '%s\n' "$site_users" | grep -qx "$u" && listen+="pid $p $u $c: $(ss -tulnpH | grep "pid=$p," | awk '{print $5}' | tr '\n' ' ')"$'\n'
 done
 [ -n "$listen" ] && add "Site user listening on a port:"$'\n'"$listen"

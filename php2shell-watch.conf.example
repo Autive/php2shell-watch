@@ -11,3 +11,7 @@ IGNORE_PATHS=""
 FPM_LOGS=""
 # Directories that hold the web roots. Empty = /home /var/www /srv (those that exist)
 WEB_ROOTS=""
+
+# Listening processes to ignore in the "site user listening on a port" check (regex on the
+# full command line). Default: Laravel Nightwatch agent, which listens on 127.0.0.1 under supervisord.
+#IGNORE_LISTEN="nightwatch:agent|reverb:start"
