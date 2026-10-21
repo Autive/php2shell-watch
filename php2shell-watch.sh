@@ -9,12 +9,13 @@ set -u
 CONF=/etc/php2shell-watch.conf
 STATE=/var/lib/php2shell-watch
 LOG=/var/log/php2shell-watch.log
-SLACK_WEBHOOK=""; MAIL_TO=""; IGNORE_CHILDREN=""; IGNORE_PATHS=""; IGNORE_LISTEN=""; FPM_LOGS=""; WEB_ROOTS=""
+SLACK_WEBHOOK=""; MAIL_TO=""; IGNORE_CHILDREN=""; IGNORE_PATHS=""; IGNORE_LISTEN=""; IGNORE_SHELLS=""; FPM_LOGS=""; WEB_ROOTS=""
 [ -f "$CONF" ] && . "$CONF"
 # Defaults cover Debian/Ubuntu (php8.x-fpm.log, /home), RHEL/Amazon Linux (/var/log/php-fpm, /var/www) and Remi SCL
 [ -z "$FPM_LOGS" ] && FPM_LOGS="/var/log/php*-fpm.log /var/log/php-fpm/*.log /var/opt/remi/php*/log/php-fpm/*.log"
 [ -z "$WEB_ROOTS" ] && WEB_ROOTS="/home /var/www /srv"
 [ -z "$IGNORE_LISTEN" ] && IGNORE_LISTEN="nightwatch:agent"
+[ -z "$IGNORE_SHELLS" ] && IGNORE_SHELLS="marketplace:warm-cache"
 roots=""; for r in $WEB_ROOTS; do [ -d "$r" ] && roots="$roots $r"; done
 mkdir -p "$STATE"
 HOST=$(hostname -s 2>/dev/null || uname -n | cut -d. -f1)
@@ -58,6 +59,7 @@ ancestor_ok() {  # true when an ancestor is cron/sshd/supervisor/systemd
 shells=""
 for u in $site_users; do
   while read -r pid ppid user comm args; do
+    printf '%s' "$args" | grep -Eq "$IGNORE_SHELLS" && continue
     ancestor_ok "$pid" || shells+="$pid $user $comm ${args:0:120}"$'\n'
   done < <(awk -v u="$u" '$3 == u && $4 ~ /^(sh|bash|dash|zsh|curl|wget|nc|ncat|netcat|socat|perl|python[0-9.]*|ruby|telnet|busybox)$/' "$STATE/ps.txt")
 done

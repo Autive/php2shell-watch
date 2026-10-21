@@ -15,3 +15,5 @@ WEB_ROOTS=""
 # Listening processes to ignore in the "site user listening on a port" check (regex on the
 # full command line). Default: Laravel Nightwatch agent, which listens on 127.0.0.1 under supervisord.
 #IGNORE_LISTEN="nightwatch:agent|reverb:start"
+# Shells a site user starts detached from PHP on purpose (Matomo's marketplace cache warmer is ignored by default)
+#IGNORE_SHELLS="marketplace:warm-cache|my-queue:work"

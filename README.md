@@ -33,7 +33,7 @@ Then put a Slack webhook or mail address in `/etc/php2shell-watch.conf`.
 
 ## Tuning
 
-If a site legitimately spawns processes from PHP (an image plugin calling `convert`, for instance), add them to `IGNORE_CHILDREN` in the conf as a regex. Noisy paths go in `IGNORE_PATHS`. Legitimate listeners run by a site user (the Laravel Nightwatch agent is ignored by default) go in `IGNORE_LISTEN`. If your FPM logs or web roots live somewhere unusual, set `FPM_LOGS` and `WEB_ROOTS`.
+If a site legitimately spawns processes from PHP (an image plugin calling `convert`, for instance), add them to `IGNORE_CHILDREN` in the conf as a regex. Noisy paths go in `IGNORE_PATHS`. Legitimate listeners run by a site user (the Laravel Nightwatch agent is ignored by default) go in `IGNORE_LISTEN`. Shells a site user legitimately starts detached from a web request (Matomo's `marketplace:warm-cache` warmer is ignored by default) go in `IGNORE_SHELLS`. If your FPM logs or web roots live somewhere unusual, set `FPM_LOGS` and `WEB_ROOTS`.
 
 Manual runs:
 
