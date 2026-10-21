@@ -69,7 +69,7 @@ listen=""
 for p in $(ss -tulnpH 2>/dev/null | grep -oE 'pid=[0-9]+' | cut -d= -f2 | sort -u); do
   u=$(ps -o user= -p "$p" 2>/dev/null | tr -d ' '); c=$(ps -o comm= -p "$p" 2>/dev/null)
   [ -z "$u" ] && continue
-  case "$c" in php-fpm*) continue;; esac
+  case "$c" in php-fpm*|nginx|apache2|httpd|caddy|litespeed) continue;; esac
   printf '%s\n' "$site_users" | grep -qx "$u" && listen+="pid $p $u $c: $(ss -tulnpH | grep "pid=$p," | awk '{print $5}' | tr '\n' ' ')"$'\n'
 done
 [ -n "$listen" ] && add "Site user listening on a port:"$'\n'"$listen"
